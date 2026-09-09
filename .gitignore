@@ -1,0 +1,4 @@
+/storage/rooms/*.json
+!/storage/rooms/.gitkeep
+.DS_Store
+
