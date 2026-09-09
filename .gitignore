@@ -1,4 +1,5 @@
 /storage/rooms/*.json
 !/storage/rooms/.gitkeep
+config.php
+/infrastructure/livekit.yaml
 .DS_Store
-
