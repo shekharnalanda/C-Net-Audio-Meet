@@ -1,0 +1,5 @@
+Options -Indexes
+RewriteEngine On
+RewriteRule ^storage/ - [F,L]
+RewriteRule ^api/?$ api.php [L,QSA]
+
