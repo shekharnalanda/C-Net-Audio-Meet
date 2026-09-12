@@ -52,7 +52,7 @@
     const webinarAudience=currentMode==='webinar'&&!host;
     cameraBtn.disabled=!lkRoom||!canPublish||currentMode==='audio'||webinarAudience;
     screenBtn.disabled=!lkRoom||!canPublish||currentMode==='audio'||webinarAudience;
-    modeBox.style.display=mode==='create'?'grid':'none';
+    modeBox.style.display=document.querySelector('#lobby')?.classList.contains('hidden')?'none':'grid';
   };
 
   async function connectTransport(){
