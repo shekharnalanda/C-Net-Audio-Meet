@@ -34,4 +34,4 @@ if($role==='host'&&in_array($requestedMode,$allowedModes,true)){
 }
 $canPublish=$role!=='audience'||$mode!=='webinar'; $now=time(); $identity=$pid;
 $claims=['sub'=>$identity,'name'=>$name,'metadata'=>json_encode(['displayName'=>$name,'role'=>$role,'mode'=>$mode],JSON_UNESCAPED_UNICODE),'nbf'=>$now-5,'exp'=>$now+(int)($config['token_ttl_seconds']??21600),'video'=>['roomJoin'=>true,'room'=>$room,'canSubscribe'=>true,'canPublish'=>$canPublish,'canPublishData'=>true]];
-respond(['ok'=>true,'url'=>(string)$config['livekit_url'],'token'=>jwt($claims,(string)$config['livekit_api_key'],(string)$config['livekit_api_secret']),'identity'=>$identity,'role'=>$role,'mode'=>$mode,'maxParticipants'=>(int)($config['max_participants']??20)]);
+respond(['ok'=>true,'url'=>(string)$config['livekit_url'],'token'=>jwt($claims,(string)$config['livekit_api_key'],(string)$config['livekit_api_secret']),'identity'=>$identity,'role'=>$role,'mode'=>$mode,'maxParticipants'=>(int)($config['max_participants']??1000)]);
