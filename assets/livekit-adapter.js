@@ -10,16 +10,16 @@
   style.textContent=`
     #cnetMediaMode{display:grid;gap:7px;margin:12px 0;padding:12px;border:1px solid rgba(69,190,255,.28);border-radius:14px;background:rgba(8,28,54,.7)}
     #cnetMediaMode label{font-weight:700} #cnetMediaMode select{width:100%;padding:11px;border-radius:10px;background:#071a31;color:#fff;border:1px solid #2e76aa}
-    #cnetLiveTier{font-size:12px;color:#9edbff} #livekitVideoGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:14px 0}
-    .lk-video{position:relative;min-height:150px;border-radius:16px;overflow:hidden;background:#071222;border:1px solid #21496d}
-    .lk-video video{width:100%;height:100%;min-height:150px;object-fit:cover;display:block}.lk-video span{position:absolute;left:9px;bottom:8px;padding:4px 8px;border-radius:8px;background:#0009;color:#fff;font-size:12px}
+    #cnetLiveTier{font-size:12px;color:#9edbff} #livekitVideoGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,260px));justify-content:start;align-items:start;gap:12px;margin:14px 0}
+    .lk-video{position:relative;width:100%;aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:#050b13;border:1px solid #21496d}
+    .lk-video video{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;display:block!important;transform:none!important}.lk-video span{position:absolute;left:9px;bottom:8px;padding:4px 8px;border-radius:8px;background:#0009;color:#fff;font-size:12px}
     .lk-media-btn[disabled]{opacity:.45;cursor:not-allowed}
   `;
   document.head.append(style);
 
   const lobbyButton=document.querySelector('#lobby button[type="submit"],#lobby #joinBtn,#lobby #startBtn')||document.querySelector('#lobby button');
   const modeBox=document.createElement('div'); modeBox.id='cnetMediaMode';
-  modeBox.innerHTML='<label for="cnetModeSelect">Meeting mode</label><select id="cnetModeSelect"><option value="audio">Audio Meeting</option><option value="video">Video Meeting</option><option value="webinar">Webinar — केवल host broadcast</option></select><small id="cnetLiveTier">Current Oracle Micro tier: अधिकतम 20 participants • 1000-user architecture upgrade-ready</small>';
+  modeBox.innerHTML='<label for="cnetModeSelect">Meeting mode</label><select id="cnetModeSelect"><option value="audio">Audio Meeting</option><option value="video">Video Meeting</option><option value="webinar">Webinar — केवल host broadcast</option></select><small id="cnetLiveTier">Capacity 10 / 20 / 30 / 50 / 100 / 1000 selectable • उपयोग server performance के अनुसार</small>';
   lobbyButton?.parentNode?.insertBefore(modeBox,lobbyButton);
 
   const videoGrid=document.createElement('section');videoGrid.id='livekitVideoGrid';videoGrid.setAttribute('aria-label','Live video participants');
@@ -40,13 +40,11 @@
     const label=document.createElement('span');label.textContent=participant?.name||'Participant';
     wrap.append(el,label);videoGrid.append(wrap);
   };
-  const attachLocalCamera=()=>{
-    videoGrid.querySelector('[data-local="1"]')?.remove();
-    const pubs=lkRoom?.localParticipant?.cameraTrackPublications;
-    const pub=pubs&&Array.from(pubs.values())[0];if(!pub?.track)return;
+  const attachLocalCamera=track=>{
+    videoGrid.querySelector('[data-local="1"]')?.remove();if(!track)return;
     const wrap=document.createElement('div');wrap.className='lk-video';wrap.dataset.local='1';
-    const el=pub.track.attach();el.muted=true;el.autoplay=true;el.playsInline=true;
-    const label=document.createElement('span');label.textContent='आप';wrap.append(el,label);videoGrid.prepend(wrap);
+    const el=track.attach();el.muted=true;el.autoplay=true;el.playsInline=true;
+    const label=document.createElement('span');label.textContent='आप (Self View)';wrap.append(el,label);videoGrid.prepend(wrap);
   };
   const updateControls=()=>{
     const webinarAudience=currentMode==='webinar'&&!host;
@@ -81,7 +79,7 @@
 
   const mic=document.querySelector('#micBtn');
   if(mic)mic.onclick=async()=>{if(!canPublish)return;muted=!muted;await lkRoom?.localParticipant.setMicrophoneEnabled(!muted);api('self',payload({field:'muted',value:muted}));mic.textContent=muted?'🔇 Unmute':'🎙️ Mute'};
-  cameraBtn.onclick=async()=>{if(!lkRoom||!canPublish)return;cameraOn=!cameraOn;try{await lkRoom.localParticipant.setCameraEnabled(cameraOn);cameraBtn.textContent=cameraOn?'📷 Camera off':'📹 Camera';if(cameraOn)attachLocalCamera();else videoGrid.querySelector('[data-local="1"]')?.remove()}catch(e){cameraOn=false;cameraBtn.textContent='📹 Camera';toast?.('Camera permission दीजिए।')}};
+  cameraBtn.onclick=async()=>{if(!lkRoom||!canPublish)return;cameraOn=!cameraOn;try{const publication=await lkRoom.localParticipant.setCameraEnabled(cameraOn);cameraBtn.textContent=cameraOn?'📷 Camera off':'📹 Camera';if(cameraOn){const track=publication?.track||Array.from(lkRoom.localParticipant.cameraTrackPublications?.values?.()||[]).find(p=>p.track)?.track;attachLocalCamera(track)}else videoGrid.querySelector('[data-local="1"]')?.remove()}catch(e){cameraOn=false;cameraBtn.textContent='📹 Camera';toast?.('Camera permission दीजिए।')}};
   screenBtn.onclick=async()=>{if(!lkRoom||!canPublish)return;screenOn=!screenOn;try{await lkRoom.localParticipant.setScreenShareEnabled(screenOn);screenBtn.textContent=screenOn?'⏹ Stop share':'🖥️ Share'}catch(e){screenOn=false;screenBtn.textContent='🖥️ Share'}};
 
   const shareInfo=document.querySelector('#shareInfo');if(shareInfo)shareInfo.onclick=()=>{if(!lkRoom)lobby('create');else screenBtn.click()};
@@ -90,5 +88,5 @@
   document.querySelector('#createBtn')?.addEventListener('click',()=>setTimeout(updateControls,0));
   document.querySelector('#joinOpen')?.addEventListener('click',()=>setTimeout(updateControls,0));
   const lobbyPanel=document.querySelector('#lobby');if(lobbyPanel)new MutationObserver(updateControls).observe(lobbyPanel,{attributes:true,attributeFilter:['class']});
-  updateControls();document.documentElement.dataset.livekitAdapter='video-webinar-ready';
+  updateControls();document.documentElement.dataset.livekitAdapter='video-tile-selfview-ready';
 })();
