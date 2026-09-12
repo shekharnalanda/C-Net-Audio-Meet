@@ -49,7 +49,7 @@
   [screenBtn,document.querySelector('#waitingBtn'),document.querySelector('#muteAllBtn'),document.querySelector('#unmuteAllBtn'),document.querySelector('#lockBtn')].filter(Boolean).forEach(x=>adminPanel.append(x));
   [document.querySelector('#renameBtn'),document.querySelector('#photoBtn')].filter(Boolean).forEach(x=>morePanel.append(x));
   const chatBtn=document.querySelector('#chatBtn'),handBtn=document.querySelector('#handBtn'),endBtn=document.querySelector('#endBtn');
-  controls?.replaceChildren(document.querySelector('#micBtn'),cameraBtn,chatBtn,reactionBtn,participantsBtn,adminBtn,moreBtn,endBtn);
+  controls?.replaceChildren(document.querySelector('#micBtn'),cameraBtn,adminBtn,chatBtn,reactionBtn,participantsBtn,moreBtn,endBtn);
   const closePanels=except=>[adminPanel,reactionPanel,morePanel].forEach(x=>{if(x!==except)x.classList.remove('open')});
   const togglePanel=x=>{const opening=!x.classList.contains('open');closePanels(x);x.classList.toggle('open',opening)};
   adminBtn.onclick=()=>togglePanel(adminPanel);reactionBtn.onclick=()=>togglePanel(reactionPanel);moreBtn.onclick=()=>togglePanel(morePanel);
