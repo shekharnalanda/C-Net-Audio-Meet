@@ -78,6 +78,20 @@ ufw allow 7881/tcp
 ufw allow 50000:50100/udp
 ufw --force enable
 
+cat >/etc/systemd/system/cnet-meet-firewall.service <<'UNIT'
+[Unit]
+Description=C-Net Meet host firewall rules
+After=network-online.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c '/usr/sbin/iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || /usr/sbin/iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT; /usr/sbin/iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || /usr/sbin/iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT; /usr/sbin/iptables -C INPUT -p tcp --dport 7881 -j ACCEPT 2>/dev/null || /usr/sbin/iptables -I INPUT 1 -p tcp --dport 7881 -j ACCEPT; /usr/sbin/iptables -C INPUT -p udp --dport 50000:50100 -j ACCEPT 2>/dev/null || /usr/sbin/iptables -I INPUT 1 -p udp --dport 50000:50100 -j ACCEPT'
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now cnet-meet-firewall.service
+
 docker compose pull
 docker compose up -d
 

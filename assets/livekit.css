@@ -1,0 +1,5 @@
+.panel select{width:100%;padding:14px;margin-top:8px;border:1px solid #cbd8eb;border-radius:12px;background:#fff;font:inherit}
+.person{overflow:hidden;padding:16px}
+.person video{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:14px;background:#050b16;margin-bottom:10px}
+.person .media:empty{display:none}
+@media(max-width:520px){.people{grid-template-columns:1fr}.controls button{padding:10px 12px}}

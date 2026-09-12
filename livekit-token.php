@@ -14,11 +14,13 @@ if(($_SERVER['REQUEST_METHOD']??'GET')!=='POST') respond(['ok'=>false,'error'=>'
 $configFile=__DIR__.'/config.php'; if(!is_file($configFile)) respond(['ok'=>false,'configured'=>false,'error'=>'LiveKit server configuration pending'],503);
 $config=require $configFile; $body=json_decode(file_get_contents('php://input')?:'{}',true); if(!is_array($body)) respond(['ok'=>false,'error'=>'Invalid request'],400);
 $room=strtoupper(preg_replace('/[^A-Z0-9_-]/i','',(string)($body['room']??''))); $name=clean((string)($body['name']??''),60);
-$role=in_array(($body['role']??''),['host','presenter','audience'],true)?$body['role']:'audience';
-$mode=in_array(($body['mode']??''),['audio','video','webinar'],true)?$body['mode']:'webinar';
+$pid=(string)($body['pid']??''); $sessionToken=(string)($body['token']??'');
 if(strlen($room)<6||strlen($room)>48||mb_strlen($name)<2) respond(['ok'=>false,'error'=>'Meeting ID और नाम सही लिखिए'],422);
-$requestedKey=(string)($body['hostAccessKey']??''); $configuredKey=(string)($config['host_access_key']??'');
-if($role!=='audience'&&($configuredKey===''||!hash_equals($configuredKey,$requestedKey))) respond(['ok'=>false,'error'=>'Host/presenter permission required'],403);
+$roomFile=__DIR__.'/storage/rooms/'.$room.'.json'; if(!is_file($roomFile)) respond(['ok'=>false,'error'=>'Meeting नहीं मिली'],404);
+$state=json_decode((string)file_get_contents($roomFile),true); $participant=$state['participants'][$pid]??null;
+if(!is_array($participant)||!isset($participant['token'])||!hash_equals((string)$participant['token'],$sessionToken)) respond(['ok'=>false,'error'=>'Meeting session expired'],403);
+$role=($participant['host']??false)?'host':'audience'; $mode=in_array(($state['mode']??''),['audio','video','webinar'],true)?$state['mode']:'audio';
 $canPublish=$role!=='audience'||$mode!=='webinar'; $now=time(); $identity=$role.'-'.bin2hex(random_bytes(10));
+$identity=$pid;
 $claims=['sub'=>$identity,'name'=>$name,'metadata'=>json_encode(['displayName'=>$name,'role'=>$role,'mode'=>$mode],JSON_UNESCAPED_UNICODE),'nbf'=>$now-5,'exp'=>$now+(int)($config['token_ttl_seconds']??21600),'video'=>['roomJoin'=>true,'room'=>$room,'canSubscribe'=>true,'canPublish'=>$canPublish,'canPublishData'=>true]];
 respond(['ok'=>true,'url'=>(string)$config['livekit_url'],'token'=>jwt($claims,(string)$config['livekit_api_key'],(string)$config['livekit_api_secret']),'identity'=>$identity,'role'=>$role,'mode'=>$mode,'maxParticipants'=>(int)($config['max_participants']??1000)]);
