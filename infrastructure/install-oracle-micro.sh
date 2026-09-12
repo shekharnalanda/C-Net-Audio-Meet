@@ -44,7 +44,7 @@ room:
   auto_create: true
   empty_timeout: 300
   departure_timeout: 20
-  max_participants: 20
+  max_participants: 1000
 logging:
   level: info
 EOF
@@ -65,7 +65,7 @@ return [
     'livekit_api_key' => '${API_KEY}',
     'livekit_api_secret' => '${API_SECRET}',
     'host_access_key' => '${HOST_KEY}',
-    'max_participants' => 20,
+    'max_participants' => 1000,
     'token_ttl_seconds' => 21600,
 ];
 EOF
