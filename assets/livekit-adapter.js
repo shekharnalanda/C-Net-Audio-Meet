@@ -9,7 +9,7 @@
   const style=document.createElement('style');
   style.textContent=`
     #cnetMediaMode{display:grid;gap:7px;margin:12px 0;padding:12px;border:1px solid rgba(69,190,255,.28);border-radius:14px;background:rgba(8,28,54,.7)}
-    #cnetMediaMode label{font-weight:700} #cnetMediaMode select{width:100%;padding:11px;border-radius:10px;background:#071a31;color:#fff;border:1px solid #2e76aa} #cnetPrejoinDevices{display:flex;gap:8px;flex-wrap:wrap} #cnetPrejoinDevices button{flex:1;min-width:135px;padding:10px;border-radius:10px;background:#0a2440;color:#fff;border:1px solid #2e76aa} #cnetJoinVerified{color:#9edbff;font-size:13px}
+    #cnetMediaMode label{font-weight:700} #cnetHostModeBox{display:grid;gap:8px;margin:12px 0;padding:12px;border:1px solid rgba(69,190,255,.35);border-radius:12px;background:#0a2039;color:#fff} #cnetHostModeBox label{font-weight:800} #cnetHostModeBox select{width:100%;padding:11px;border-radius:10px;background:#071a31;color:#fff;border:1px solid #2e76aa} #cnetMediaMode select{width:100%;padding:11px;border-radius:10px;background:#071a31;color:#fff;border:1px solid #2e76aa} #cnetPrejoinDevices{display:flex;gap:8px;flex-wrap:wrap} #cnetPrejoinDevices button{flex:1;min-width:135px;padding:10px;border-radius:10px;background:#0a2440;color:#fff;border:1px solid #2e76aa} #cnetJoinVerified{color:#9edbff;font-size:13px}
     #cnetLiveTier{font-size:12px;color:#9edbff} #cnetGridToolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0} #cnetGridToolbar select,#cnetGridToolbar button{padding:7px 10px;border-radius:9px;background:#0a2440;color:#fff;border:1px solid #2e76aa} #cnetGridPage{font-size:12px;color:#b9dcf7} #livekitVideoGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,260px));justify-content:start;align-items:start;gap:12px;margin:14px 0}
     .lk-video{position:relative;width:100%;aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:#050b13;border:1px solid #21496d}
     .lk-placeholder{position:absolute;inset:0;display:grid;place-items:center;font-size:42px;font-weight:800;color:#7ccfff;background:linear-gradient(145deg,#0b2744,#06111e)} .lk-video video{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;display:block!important;transform:none!important}.lk-video span{position:absolute;left:9px;bottom:8px;padding:4px 8px;border-radius:8px;background:#0009;color:#fff;font-size:12px}
@@ -29,6 +29,9 @@
   modeBox.innerHTML='<label id="cnetSessionLabel" for="cnetModeSelect">Session type — केवल Host तय करेगा</label><select id="cnetModeSelect"><option value="audio">Audio Meeting</option><option value="video">Video Meeting</option><option value="webinar">Webinar — Host controlled audience</option></select><small id="cnetLiveTier">Capacity 10 / 20 / 30 / 50 / 100 / 1000 selectable • उपयोग server performance के अनुसार</small><small id="cnetJoinVerified">Invitation से session type अपने-आप निर्धारित होगा।</small><div id="cnetPrejoinDevices"><button type="button" id="cnetPrejoinMic">🎙️ Mic on</button><button type="button" id="cnetPrejoinCamera">📹 Camera off</button></div>';
   lobbyButton?.parentNode?.insertBefore(modeBox,lobbyButton);
 
+  const hostModeBox=document.createElement('div');hostModeBox.id='cnetHostModeBox';hostModeBox.innerHTML='<label for="cnetHostModeSelect">Host Session Type</label><select id="cnetHostModeSelect"><option value="video">Video Meeting</option><option value="audio">Audio Meeting</option><option value="webinar">Webinar</option></select><small>यह विकल्प केवल Host तय करेगा।</small>';
+  const hostModeSelect=hostModeBox.querySelector('#cnetHostModeSelect');hostModeSelect.value=['audio','video','webinar'].includes(localStorage.getItem('cnetHostMode'))?localStorage.getItem('cnetHostMode'):'video';modeBox.querySelector('#cnetModeSelect').value=hostModeSelect.value;hostModeSelect.onchange=()=>{localStorage.setItem('cnetHostMode',hostModeSelect.value);modeBox.querySelector('#cnetModeSelect').value=hostModeSelect.value};
+  const hostPinForm=document.querySelector('#hostPinForm');if(hostPinForm){const verifyPin=hostPinForm.querySelector('button[type="submit"],button.primary');hostPinForm.insertBefore(hostModeBox,verifyPin||null)}
   const prejoinMicBtn=modeBox.querySelector('#cnetPrejoinMic'),prejoinCameraBtn=modeBox.querySelector('#cnetPrejoinCamera');
   const refreshPrejoin=()=>{prejoinMicBtn.textContent=prejoinMic?'🎙️ Mic on':'🔇 Mic off';prejoinCameraBtn.textContent=prejoinCamera?'📷 Camera on':'📹 Camera off'};
   prejoinMicBtn.onclick=()=>{prejoinMic=!prejoinMic;localStorage.setItem('cnetPrejoinMic',prejoinMic?'1':'0');refreshPrejoin()};
@@ -115,7 +118,7 @@
   async function connectTransport(){
     if(lkRoom||connecting)return;connecting=true;
     try{
-      const requested=document.querySelector('#cnetModeSelect')?.value||'audio';
+      const requested=host?hostModeSelect.value:(document.querySelector('#cnetModeSelect')?.value||'audio');
       const response=await fetch('livekit-token.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room,name:document.querySelector('#nameInput')?.value?.trim()||'Member',pid,token,mode:requested})});
       const auth=await response.json();if(!auth.ok)throw Error(auth.error||'LiveKit authorization failed');
       currentMode=auth.mode||'audio';canPublish=auth.role!=='audience'||currentMode!=='webinar';
@@ -148,7 +151,7 @@
   const shareInfo=document.querySelector('#shareInfo');if(shareInfo)shareInfo.onclick=()=>{if(!lkRoom)lobby('create');else screenBtn.click()};
   leave=async function(...args){try{await lkRoom?.disconnect()}catch{}lkRoom=null;gridPage=0;videoGrid.replaceChildren();participantDrawer.classList.remove('open');closePanels();return originalLeave(...args)};
   window.addEventListener('beforeunload',()=>lkRoom?.disconnect());
-  document.querySelector('#createBtn')?.addEventListener('click',()=>setTimeout(updateControls,0));
+  document.querySelector('#createBtn')?.addEventListener('click',()=>{hostModeBox.style.display='grid';setTimeout(updateControls,0)});document.querySelector('#scheduleOpen')?.addEventListener('click',()=>{hostModeBox.style.display='grid'});document.querySelector('#agendaAdd')?.addEventListener('click',()=>{hostModeBox.style.display='grid'});
   document.querySelector('#joinOpen')?.addEventListener('click',()=>setTimeout(updateControls,0));
   const lobbyPanel=document.querySelector('#lobby');if(lobbyPanel)new MutationObserver(updateControls).observe(lobbyPanel,{attributes:true,attributeFilter:['class']});
   if(typeof lobby==='function'){const baseLobby=lobby;lobby=function(...args){const result=baseLobby(...args);setTimeout(updateControls,0);return result}}
@@ -156,5 +159,5 @@
   const announceAvatar=()=>setTimeout(async()=>{try{await poll?.();syncTileAvatars();const bytes=new TextEncoder().encode(JSON.stringify({type:'avatar-updated',identity:pid,time:Date.now()}));await lkRoom?.localParticipant?.publishData(bytes,{reliable:true,topic:'profile'})}catch{}},900);
   document.querySelector('#photoInput')?.addEventListener('change',announceAvatar);document.querySelector('#photoRemove')?.addEventListener('click',announceAvatar);
   if(legacyPeople)new MutationObserver(()=>setTimeout(syncTileAvatars,0)).observe(legacyPeople,{childList:true,subtree:true});
-  updateControls();setMediaVisual(document.querySelector('#micBtn'),true,'Microphone');setMediaVisual(cameraBtn,false,'Camera');document.documentElement.dataset.livekitAdapter='host-media-avatar-final-ready';
+  updateControls();setMediaVisual(document.querySelector('#micBtn'),true,'Microphone');setMediaVisual(cameraBtn,false,'Camera');document.documentElement.dataset.livekitAdapter='host-mode-camera-repair-ready';
 })();
