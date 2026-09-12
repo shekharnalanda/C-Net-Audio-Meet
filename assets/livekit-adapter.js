@@ -4,15 +4,15 @@
 (()=>{
   if(!window.LivekitClient||typeof start!=='function')return;
   const originalStart=start,originalLeave=leave;
-  let lkRoom=null,connecting=false,currentMode='audio',canPublish=true,cameraOn=false,screenOn=false;
+  let lkRoom=null,connecting=false,currentMode='audio',canPublish=true,cameraOn=false,screenOn=false,gridSize=Number(localStorage.getItem('cnetGridSize')||8),gridPage=0;
 
   const style=document.createElement('style');
   style.textContent=`
     #cnetMediaMode{display:grid;gap:7px;margin:12px 0;padding:12px;border:1px solid rgba(69,190,255,.28);border-radius:14px;background:rgba(8,28,54,.7)}
     #cnetMediaMode label{font-weight:700} #cnetMediaMode select{width:100%;padding:11px;border-radius:10px;background:#071a31;color:#fff;border:1px solid #2e76aa}
-    #cnetLiveTier{font-size:12px;color:#9edbff} #livekitVideoGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,260px));justify-content:start;align-items:start;gap:12px;margin:14px 0}
+    #cnetLiveTier{font-size:12px;color:#9edbff} #cnetGridToolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0} #cnetGridToolbar select,#cnetGridToolbar button{padding:7px 10px;border-radius:9px;background:#0a2440;color:#fff;border:1px solid #2e76aa} #cnetGridPage{font-size:12px;color:#b9dcf7} #livekitVideoGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,260px));justify-content:start;align-items:start;gap:12px;margin:14px 0}
     .lk-video{position:relative;width:100%;aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:#050b13;border:1px solid #21496d}
-    .lk-video video{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;display:block!important;transform:none!important}.lk-video span{position:absolute;left:9px;bottom:8px;padding:4px 8px;border-radius:8px;background:#0009;color:#fff;font-size:12px}
+    .lk-placeholder{position:absolute;inset:0;display:grid;place-items:center;font-size:42px;font-weight:800;color:#7ccfff;background:linear-gradient(145deg,#0b2744,#06111e)} .lk-video video{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;display:block!important;transform:none!important}.lk-video span{position:absolute;left:9px;bottom:8px;padding:4px 8px;border-radius:8px;background:#0009;color:#fff;font-size:12px}
     .lk-media-btn[disabled]{opacity:.45;cursor:not-allowed}
   `;
   document.head.append(style);
@@ -24,6 +24,8 @@
 
   const videoGrid=document.createElement('section');videoGrid.id='livekitVideoGrid';videoGrid.setAttribute('aria-label','Live video participants');
   document.querySelector('#people')?.parentNode?.insertBefore(videoGrid,document.querySelector('#people'));
+  const gridToolbar=document.createElement('div');gridToolbar.id='cnetGridToolbar';gridToolbar.innerHTML='<label for="gridSizeSelect">Grid</label><select id="gridSizeSelect"><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="25">25</option></select><button type="button" id="gridPrev">‹ Previous</button><span id="cnetGridPage">Page 1 / 1</span><button type="button" id="gridNext">Next ›</button>';
+  videoGrid.parentNode?.insertBefore(gridToolbar,videoGrid);const gridSelect=gridToolbar.querySelector('#gridSizeSelect');gridSelect.value=String([4,8,16,25].includes(gridSize)?gridSize:8);
 
   const controls=document.querySelector('.controls');
   const cameraBtn=document.createElement('button');cameraBtn.type='button';cameraBtn.id='cameraBtn';cameraBtn.className='lk-media-btn';cameraBtn.textContent='📹 Camera';
@@ -31,26 +33,42 @@
   controls?.insertBefore(cameraBtn,document.querySelector('#micBtn')?.nextSibling||null);
   controls?.insertBefore(screenBtn,cameraBtn.nextSibling);
 
-  const removeTrack=track=>track.detach().forEach(el=>{el.closest('.lk-video')?.remove();if(!el.closest('.lk-video'))el.remove()});
+  const paginate=()=>{
+    const tiles=[...videoGrid.querySelectorAll('.lk-video')],pages=Math.max(1,Math.ceil(tiles.length/gridSize));gridPage=Math.min(gridPage,pages-1);
+    tiles.forEach((tile,index)=>tile.hidden=index<gridPage*gridSize||index>=(gridPage+1)*gridSize);
+    gridToolbar.querySelector('#cnetGridPage').textContent=`Page ${gridPage+1} / ${pages} • ${tiles.length} participant`;
+    gridToolbar.querySelector('#gridPrev').disabled=gridPage===0;gridToolbar.querySelector('#gridNext').disabled=gridPage>=pages-1;
+    const columns=gridSize<=4?2:gridSize<=16?4:5;videoGrid.style.gridTemplateColumns=`repeat(${columns},minmax(0,1fr))`;
+  };
+  gridSelect.onchange=()=>{gridSize=Number(gridSelect.value);gridPage=0;localStorage.setItem('cnetGridSize',String(gridSize));paginate()};
+  gridToolbar.querySelector('#gridPrev').onclick=()=>{if(gridPage>0){gridPage--;paginate()}};
+  gridToolbar.querySelector('#gridNext').onclick=()=>{gridPage++;paginate()};
+  const participantTile=(participant,self=false)=>{
+    const identity=participant?.identity||'local',selector=`[data-participant="${CSS.escape(identity)}"]`;
+    let wrap=videoGrid.querySelector(selector);if(wrap)return wrap;
+    wrap=document.createElement('div');wrap.className='lk-video';wrap.dataset.participant=identity;
+    const placeholder=document.createElement('div');placeholder.className='lk-placeholder';placeholder.textContent=(participant?.name||'P').slice(0,1).toUpperCase();
+    const label=document.createElement('span');label.textContent=self?'आप (Self View)':participant?.name||'Participant';
+    wrap.append(placeholder,label);videoGrid.append(wrap);paginate();return wrap;
+  };
+  const removeTrack=track=>track.detach().forEach(el=>{const wrap=el.closest('.lk-video');el.remove();if(wrap){wrap.classList.remove('has-video');if(!wrap.querySelector('.lk-placeholder')){const p=document.createElement('div');p.className='lk-placeholder';p.textContent='P';wrap.prepend(p)}}paginate()});
   const attachTrack=(track,participant)=>{
     if(track.kind==='audio'){const el=track.attach();el.autoplay=true;el.dataset.livekit='1';document.querySelector('#audioBox')?.append(el);return}
     if(track.kind!=='video')return;
-    const wrap=document.createElement('div');wrap.className='lk-video';wrap.dataset.sid=track.sid||Math.random().toString(36);
-    const el=track.attach();el.autoplay=true;el.playsInline=true;
-    const label=document.createElement('span');label.textContent=participant?.name||'Participant';
-    wrap.append(el,label);videoGrid.append(wrap);
+    const wrap=participantTile(participant);wrap.querySelector('video')?.remove();wrap.querySelector('.lk-placeholder')?.remove();wrap.classList.add('has-video');
+    const el=track.attach();el.autoplay=true;el.playsInline=true;wrap.prepend(el);paginate();
   };
   const attachLocalCamera=track=>{
-    videoGrid.querySelector('[data-local="1"]')?.remove();if(!track)return;
-    const wrap=document.createElement('div');wrap.className='lk-video';wrap.dataset.local='1';
-    const el=track.attach();el.muted=true;el.autoplay=true;el.playsInline=true;
-    const label=document.createElement('span');label.textContent='आप (Self View)';wrap.append(el,label);videoGrid.prepend(wrap);
+    const participant=lkRoom?.localParticipant,wrap=participantTile(participant,true);wrap.querySelector('video')?.remove();
+    if(!track){paginate();return}wrap.querySelector('.lk-placeholder')?.remove();wrap.classList.add('has-video');
+    const el=track.attach();el.muted=true;el.autoplay=true;el.playsInline=true;wrap.prepend(el);videoGrid.prepend(wrap);paginate();
   };
   const updateControls=()=>{
     const webinarAudience=currentMode==='webinar'&&!host;
     cameraBtn.disabled=!lkRoom||!canPublish||currentMode==='audio'||webinarAudience;
     screenBtn.disabled=!lkRoom||!canPublish||currentMode==='audio'||webinarAudience;
     modeBox.style.display=document.querySelector('#lobby')?.classList.contains('hidden')?'none':'grid';
+    const videoMode=currentMode!=='audio';videoGrid.hidden=!videoMode;gridToolbar.hidden=!videoMode;const legacyPeople=document.querySelector('#people');if(legacyPeople)legacyPeople.style.display=videoMode?'none':'';
   };
 
   async function connectTransport(){
@@ -64,11 +82,14 @@
       lkRoom=new Room({adaptiveStream:true,dynacast:true,publishDefaults:{simulcast:true,videoCodec:'vp8',dtx:true,red:true}});
       lkRoom.on(RoomEvent.TrackSubscribed,(track,_publication,participant)=>attachTrack(track,participant));
       lkRoom.on(RoomEvent.TrackUnsubscribed,track=>removeTrack(track));
+      lkRoom.on(RoomEvent.ParticipantConnected,participant=>participantTile(participant));
+      lkRoom.on(RoomEvent.ParticipantDisconnected,participant=>{videoGrid.querySelector(`[data-participant="${CSS.escape(participant.identity)}"]`)?.remove();paginate()});
       lkRoom.on(RoomEvent.Disconnected,()=>{const s=document.querySelector('#status');if(s)s.textContent='LiveKit reconnect हो रहा है…'});
       await lkRoom.connect(auth.url,auth.token);
       stream?.getTracks().forEach(t=>t.stop());stream=null;
       if(canPublish)await lkRoom.localParticipant.setMicrophoneEnabled(!muted);
-      peers={};updateControls();
+      participantTile(lkRoom.localParticipant,true);lkRoom.remoteParticipants.forEach(participant=>participantTile(participant));
+      peers={};updateControls();paginate();
       const s=document.querySelector('#status');if(s)s.dataset.transport='livekit';
     }finally{connecting=false}
   }
@@ -83,10 +104,10 @@
   screenBtn.onclick=async()=>{if(!lkRoom||!canPublish)return;screenOn=!screenOn;try{await lkRoom.localParticipant.setScreenShareEnabled(screenOn);screenBtn.textContent=screenOn?'⏹ Stop share':'🖥️ Share'}catch(e){screenOn=false;screenBtn.textContent='🖥️ Share'}};
 
   const shareInfo=document.querySelector('#shareInfo');if(shareInfo)shareInfo.onclick=()=>{if(!lkRoom)lobby('create');else screenBtn.click()};
-  leave=async function(...args){try{await lkRoom?.disconnect()}catch{}lkRoom=null;videoGrid.replaceChildren();return originalLeave(...args)};
+  leave=async function(...args){try{await lkRoom?.disconnect()}catch{}lkRoom=null;gridPage=0;videoGrid.replaceChildren();const legacyPeople=document.querySelector('#people');if(legacyPeople)legacyPeople.style.display='';return originalLeave(...args)};
   window.addEventListener('beforeunload',()=>lkRoom?.disconnect());
   document.querySelector('#createBtn')?.addEventListener('click',()=>setTimeout(updateControls,0));
   document.querySelector('#joinOpen')?.addEventListener('click',()=>setTimeout(updateControls,0));
   const lobbyPanel=document.querySelector('#lobby');if(lobbyPanel)new MutationObserver(updateControls).observe(lobbyPanel,{attributes:true,attributeFilter:['class']});
-  updateControls();document.documentElement.dataset.livekitAdapter='video-tile-selfview-ready';
+  updateControls();document.documentElement.dataset.livekitAdapter='unified-paged-grid-ready';
 })();
