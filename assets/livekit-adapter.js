@@ -2,8 +2,8 @@
  * Loaded after app.js/addon.js so existing room, waiting-room, chat and host
  * controls remain unchanged while audio moves from mesh WebRTC to LiveKit. */
 (()=>{
-  if(!window.LivekitClient||typeof window.start!=='function')return;
-  const originalStart=window.start,originalLeave=window.leave;
+  if(!window.LivekitClient||typeof start!=='function')return;
+  const originalStart=start,originalLeave=leave;
   let lkRoom=null,connecting=false;
   const attachAudio=track=>{const el=track.attach();el.autoplay=true;el.dataset.livekit='1';document.querySelector('#audioBox')?.append(el)};
   async function connectTransport(){
@@ -21,10 +21,11 @@
       window.peers={};
     }finally{connecting=false}
   }
-  window.makePeer=async()=>null;window.signal=async()=>{};window.drop=()=>{};
-  window.start=async function(){try{await connectTransport();originalStart()}catch(e){document.querySelector('#lobbyError').textContent=e.message||'LiveKit audio connect नहीं हुआ'}};
-  window.recoverAudio=async function(){if(!lkRoom)return;try{await lkRoom.localParticipant.setMicrophoneEnabled(!muted)}catch{}}
+  makePeer=async()=>null;signal=async()=>{};drop=()=>{};
+  start=async function(){try{await connectTransport();originalStart()}catch(e){document.querySelector('#lobbyError').textContent=e.message||'LiveKit audio connect नहीं हुआ'}};
+  recoverAudio=async function(){if(!lkRoom)return;try{await lkRoom.localParticipant.setMicrophoneEnabled(!muted)}catch{}}
   const mic=document.querySelector('#micBtn');if(mic)mic.onclick=async()=>{muted=!muted;await lkRoom?.localParticipant.setMicrophoneEnabled(!muted);api('self',payload({field:'muted',value:muted}));mic.textContent=muted?'🔇 Unmute':'🎙️ Mute'};
-  window.leave=async function(...args){try{await lkRoom?.disconnect()}catch{}lkRoom=null;return originalLeave(...args)};
+  leave=async function(...args){try{await lkRoom?.disconnect()}catch{}lkRoom=null;return originalLeave(...args)};
   window.addEventListener('beforeunload',()=>lkRoom?.disconnect());
+  document.documentElement.dataset.livekitAdapter='ready';
 })();
