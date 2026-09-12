@@ -16,6 +16,6 @@ room:
   max_participants: 1000
 turn:
   enabled: true
-  domain: media.meet.mciedu.com
+  domain: livekit.meet.mciedu.com
   tls_port: 443
   udp_port: 3478

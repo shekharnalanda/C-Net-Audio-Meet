@@ -34,3 +34,16 @@ The existing WebRTC mesh remains available until the VPS is connected. It is not
 - `infrastructure/livekit.example.yaml`: 1,000-participant ceiling, TURN and UDP configuration.
 
 Real `config.php` and `infrastructure/livekit.yaml` files are ignored by Git and must never be committed.
+
+## Oracle Always Free micro test profile
+
+`infrastructure/install-oracle-micro.sh` bootstraps the available
+`VM.Standard.E2.1.Micro` instance with a 2 GB swap file, Docker, LiveKit and
+Caddy-managed HTTPS for `livekit.meet.mciedu.com`. It deliberately limits the
+room to 20 participants because the 1 OCPU / 1 GB instance is for functional
+testing, not the locked 1,000-participant production target.
+
+The generated API credentials stay on the VPS in
+`/opt/cnet-meet-livekit/portal-config.php`. Never commit that file. Oracle's
+VCN security list must separately allow TCP 80, 443 and 7881 plus UDP
+50000-50100 before browser media testing.
