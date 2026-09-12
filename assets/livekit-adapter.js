@@ -4,12 +4,12 @@
 (()=>{
   if(!window.LivekitClient||typeof start!=='function')return;
   const originalStart=start,originalLeave=leave;
-  let lkRoom=null,connecting=false,currentMode='audio',canPublish=true,cameraOn=false,screenOn=false,gridSize=Number(localStorage.getItem('cnetGridSize')||8),gridPage=0;
+  let lkRoom=null,connecting=false,currentMode='audio',canPublish=true,cameraOn=false,screenOn=false,prejoinMic=localStorage.getItem('cnetPrejoinMic')!=='0',prejoinCamera=localStorage.getItem('cnetPrejoinCamera')==='1',gridSize=Number(localStorage.getItem('cnetGridSize')||8),gridPage=0;
 
   const style=document.createElement('style');
   style.textContent=`
     #cnetMediaMode{display:grid;gap:7px;margin:12px 0;padding:12px;border:1px solid rgba(69,190,255,.28);border-radius:14px;background:rgba(8,28,54,.7)}
-    #cnetMediaMode label{font-weight:700} #cnetMediaMode select{width:100%;padding:11px;border-radius:10px;background:#071a31;color:#fff;border:1px solid #2e76aa}
+    #cnetMediaMode label{font-weight:700} #cnetMediaMode select{width:100%;padding:11px;border-radius:10px;background:#071a31;color:#fff;border:1px solid #2e76aa} #cnetPrejoinDevices{display:flex;gap:8px;flex-wrap:wrap} #cnetPrejoinDevices button{flex:1;min-width:135px;padding:10px;border-radius:10px;background:#0a2440;color:#fff;border:1px solid #2e76aa} #cnetJoinVerified{color:#9edbff;font-size:13px}
     #cnetLiveTier{font-size:12px;color:#9edbff} #cnetGridToolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0} #cnetGridToolbar select,#cnetGridToolbar button{padding:7px 10px;border-radius:9px;background:#0a2440;color:#fff;border:1px solid #2e76aa} #cnetGridPage{font-size:12px;color:#b9dcf7} #livekitVideoGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,260px));justify-content:start;align-items:start;gap:12px;margin:14px 0}
     .lk-video{position:relative;width:100%;aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:#050b13;border:1px solid #21496d}
     .lk-placeholder{position:absolute;inset:0;display:grid;place-items:center;font-size:42px;font-weight:800;color:#7ccfff;background:linear-gradient(145deg,#0b2744,#06111e)} .lk-video video{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;display:block!important;transform:none!important}.lk-video span{position:absolute;left:9px;bottom:8px;padding:4px 8px;border-radius:8px;background:#0009;color:#fff;font-size:12px}
@@ -25,8 +25,13 @@
 
   const lobbyButton=document.querySelector('#lobby button[type="submit"],#lobby #joinBtn,#lobby #startBtn')||document.querySelector('#lobby button');
   const modeBox=document.createElement('div'); modeBox.id='cnetMediaMode';
-  modeBox.innerHTML='<label for="cnetModeSelect">Meeting mode</label><select id="cnetModeSelect"><option value="audio">Audio Meeting</option><option value="video">Video Meeting</option><option value="webinar">Webinar — केवल host broadcast</option></select><small id="cnetLiveTier">Capacity 10 / 20 / 30 / 50 / 100 / 1000 selectable • उपयोग server performance के अनुसार</small>';
+  modeBox.innerHTML='<label id="cnetSessionLabel" for="cnetModeSelect">Session type — केवल Host तय करेगा</label><select id="cnetModeSelect"><option value="video">Meeting — Audio/Video controls सहित</option><option value="webinar">Webinar — Host controlled audience</option></select><small id="cnetLiveTier">Capacity 10 / 20 / 30 / 50 / 100 / 1000 selectable • उपयोग server performance के अनुसार</small><small id="cnetJoinVerified">Invitation से session type अपने-आप निर्धारित होगा।</small><div id="cnetPrejoinDevices"><button type="button" id="cnetPrejoinMic">🎙️ Mic on</button><button type="button" id="cnetPrejoinCamera">📹 Camera off</button></div>';
   lobbyButton?.parentNode?.insertBefore(modeBox,lobbyButton);
+
+  const prejoinMicBtn=modeBox.querySelector('#cnetPrejoinMic'),prejoinCameraBtn=modeBox.querySelector('#cnetPrejoinCamera');
+  const refreshPrejoin=()=>{prejoinMicBtn.textContent=prejoinMic?'🎙️ Mic on':'🔇 Mic off';prejoinCameraBtn.textContent=prejoinCamera?'📷 Camera on':'📹 Camera off'};
+  prejoinMicBtn.onclick=()=>{prejoinMic=!prejoinMic;localStorage.setItem('cnetPrejoinMic',prejoinMic?'1':'0');refreshPrejoin()};
+  prejoinCameraBtn.onclick=()=>{prejoinCamera=!prejoinCamera;localStorage.setItem('cnetPrejoinCamera',prejoinCamera?'1':'0');refreshPrejoin()};refreshPrejoin();
 
   const videoGrid=document.createElement('section');videoGrid.id='livekitVideoGrid';videoGrid.setAttribute('aria-label','Live video participants');
   document.querySelector('#people')?.parentNode?.insertBefore(videoGrid,document.querySelector('#people'));
@@ -74,11 +79,15 @@
     const identity=participant?.identity||'local',selector=`[data-participant="${CSS.escape(identity)}"]`;
     let wrap=videoGrid.querySelector(selector);if(wrap)return wrap;
     wrap=document.createElement('div');wrap.className='lk-video';wrap.dataset.participant=identity;
-    const placeholder=document.createElement('div');placeholder.className='lk-placeholder';placeholder.textContent=(participant?.name||'P').slice(0,1).toUpperCase();
+    const person=(typeof lastPeople!=='undefined'?lastPeople:[]).find(p=>p.id===identity),avatar=person?.avatar;
+    const placeholder=document.createElement('div');placeholder.className='lk-placeholder';
+    if(avatar){const img=document.createElement('img');img.src=`avatar.php?room=${encodeURIComponent(room)}&id=${encodeURIComponent(identity)}&v=${encodeURIComponent(avatar)}`;img.alt=`${participant?.name||person?.name||'Participant'} profile photo`;img.style.cssText='width:100%;height:100%;object-fit:cover';placeholder.append(img)}else placeholder.textContent=(participant?.name||person?.name||'P').slice(0,1).toUpperCase();
     const label=document.createElement('span');label.textContent=self?'आप (Self View)':participant?.name||'Participant';
     wrap.append(placeholder,label);videoGrid.append(wrap);paginate();return wrap;
   };
-  const removeTrack=track=>track.detach().forEach(el=>{const wrap=el.closest('.lk-video');el.remove();if(wrap){wrap.classList.remove('has-video');if(!wrap.querySelector('.lk-placeholder')){const p=document.createElement('div');p.className='lk-placeholder';p.textContent='P';wrap.prepend(p)}}paginate()});
+  const ensureTilePlaceholder=wrap=>{if(!wrap||wrap.querySelector('video')||wrap.querySelector('.lk-placeholder'))return;const identity=wrap.dataset.participant||'',person=(typeof lastPeople!=='undefined'?lastPeople:[]).find(p=>p.id===identity);const p=document.createElement('div');p.className='lk-placeholder';if(person?.avatar){const img=document.createElement('img');img.src=`avatar.php?room=${encodeURIComponent(room)}&id=${encodeURIComponent(identity)}&v=${encodeURIComponent(person.avatar)}`;img.alt=`${person.name||'Participant'} profile photo`;img.style.cssText='width:100%;height:100%;object-fit:cover';p.append(img)}else p.textContent=(person?.name||'P').slice(0,1).toUpperCase();wrap.prepend(p)};
+  const syncTileAvatars=()=>{videoGrid.querySelectorAll('.lk-video').forEach(wrap=>{if(wrap.querySelector('video'))return;wrap.querySelector('.lk-placeholder')?.remove();ensureTilePlaceholder(wrap)})};
+  const removeTrack=track=>track.detach().forEach(el=>{const wrap=el.closest('.lk-video');el.remove();if(wrap){wrap.classList.remove('has-video');ensureTilePlaceholder(wrap)}paginate()});
   const attachTrack=(track,participant)=>{
     if(track.kind==='audio'){const el=track.attach();el.autoplay=true;el.dataset.livekit='1';document.querySelector('#audioBox')?.append(el);return}
     if(track.kind!=='video')return;
@@ -94,7 +103,9 @@
     const webinarAudience=currentMode==='webinar'&&!host;
     cameraBtn.disabled=!lkRoom||!canPublish||currentMode==='audio'||webinarAudience;
     screenBtn.disabled=!lkRoom||!canPublish||currentMode==='audio'||webinarAudience;
-    modeBox.style.display=document.querySelector('#lobby')?.classList.contains('hidden')?'none':'grid';
+    const lobbyVisible=!document.querySelector('#lobby')?.classList.contains('hidden'),creating=typeof mode!=='undefined'&&mode==='create';
+    modeBox.style.display=lobbyVisible?'grid':'none';
+    modeBox.querySelector('#cnetSessionLabel').hidden=!creating;modeBox.querySelector('#cnetModeSelect').hidden=!creating;modeBox.querySelector('#cnetLiveTier').hidden=!creating;modeBox.querySelector('#cnetJoinVerified').hidden=creating;
     const videoMode=currentMode!=='audio';videoGrid.hidden=!videoMode;gridToolbar.hidden=!videoMode;adminBtn.classList.toggle('hidden',!host);
   };
 
@@ -115,7 +126,7 @@
       lkRoom.on(RoomEvent.Disconnected,()=>{const s=document.querySelector('#status');if(s)s.textContent='LiveKit reconnect हो रहा है…'});
       await lkRoom.connect(auth.url,auth.token);
       stream?.getTracks().forEach(t=>t.stop());stream=null;
-      if(canPublish)await lkRoom.localParticipant.setMicrophoneEnabled(!muted);
+      if(canPublish){await lkRoom.localParticipant.setMicrophoneEnabled(prejoinMic&&!muted);muted=!prejoinMic;if(currentMode==='video'&&prejoinCamera){const publication=await lkRoom.localParticipant.setCameraEnabled(true);cameraOn=true;const localTrack=publication?.track||Array.from(lkRoom.localParticipant.cameraTrackPublications?.values?.()||[]).find(p=>p.track)?.track;attachLocalCamera(localTrack)}}
       participantTile(lkRoom.localParticipant,true);lkRoom.remoteParticipants.forEach(participant=>participantTile(participant));
       peers={};updateControls();paginate();
       const s=document.querySelector('#status');if(s)s.dataset.transport='livekit';
@@ -128,7 +139,7 @@
 
   const mic=document.querySelector('#micBtn');
   if(mic)mic.onclick=async()=>{if(!canPublish)return;muted=!muted;await lkRoom?.localParticipant.setMicrophoneEnabled(!muted);api('self',payload({field:'muted',value:muted}));mic.textContent=muted?'🔇 Unmute':'🎙️ Mute'};
-  cameraBtn.onclick=async()=>{if(!lkRoom||!canPublish)return;cameraOn=!cameraOn;try{const publication=await lkRoom.localParticipant.setCameraEnabled(cameraOn);cameraBtn.textContent=cameraOn?'📷 Camera off':'📹 Camera';if(cameraOn){const track=publication?.track||Array.from(lkRoom.localParticipant.cameraTrackPublications?.values?.()||[]).find(p=>p.track)?.track;attachLocalCamera(track)}else videoGrid.querySelector('[data-local="1"]')?.remove()}catch(e){cameraOn=false;cameraBtn.textContent='📹 Camera';toast?.('Camera permission दीजिए।')}};
+  cameraBtn.onclick=async()=>{if(!lkRoom||!canPublish)return;cameraOn=!cameraOn;try{const publication=await lkRoom.localParticipant.setCameraEnabled(cameraOn);cameraBtn.textContent=cameraOn?'📷 Camera off':'📹 Camera';const wrap=participantTile(lkRoom.localParticipant,true);if(cameraOn){const track=publication?.track||Array.from(lkRoom.localParticipant.cameraTrackPublications?.values?.()||[]).find(p=>p.track)?.track;attachLocalCamera(track)}else{wrap.querySelector('video')?.remove();wrap.classList.remove('has-video');ensureTilePlaceholder(wrap);paginate()}}catch(e){cameraOn=false;cameraBtn.textContent='📹 Camera';toast?.('Camera permission दीजिए।')}};
   screenBtn.onclick=async()=>{if(!lkRoom||!canPublish)return;screenOn=!screenOn;try{await lkRoom.localParticipant.setScreenShareEnabled(screenOn);screenBtn.textContent=screenOn?'⏹ Stop share':'🖥️ Share'}catch(e){screenOn=false;screenBtn.textContent='🖥️ Share'}};
 
   const shareInfo=document.querySelector('#shareInfo');if(shareInfo)shareInfo.onclick=()=>{if(!lkRoom)lobby('create');else screenBtn.click()};
@@ -137,5 +148,6 @@
   document.querySelector('#createBtn')?.addEventListener('click',()=>setTimeout(updateControls,0));
   document.querySelector('#joinOpen')?.addEventListener('click',()=>setTimeout(updateControls,0));
   const lobbyPanel=document.querySelector('#lobby');if(lobbyPanel)new MutationObserver(updateControls).observe(lobbyPanel,{attributes:true,attributeFilter:['class']});
-  updateControls();document.documentElement.dataset.livekitAdapter='professional-toolbar-ready';
+  if(legacyPeople)new MutationObserver(()=>setTimeout(syncTileAvatars,0)).observe(legacyPeople,{childList:true,subtree:true});
+  updateControls();document.documentElement.dataset.livekitAdapter='professional-join-avatar-ready';
 })();
