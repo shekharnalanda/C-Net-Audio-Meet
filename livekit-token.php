@@ -19,8 +19,19 @@ if(strlen($room)<6||strlen($room)>48||mb_strlen($name)<2) respond(['ok'=>false,'
 $roomFile=__DIR__.'/storage/rooms/'.$room.'.json'; if(!is_file($roomFile)) respond(['ok'=>false,'error'=>'Meeting नहीं मिली'],404);
 $state=json_decode((string)file_get_contents($roomFile),true); $participant=$state['participants'][$pid]??null;
 if(!is_array($participant)||!isset($participant['token'])||!hash_equals((string)$participant['token'],$sessionToken)) respond(['ok'=>false,'error'=>'Meeting session expired'],403);
-$role=($participant['host']??false)?'host':'audience'; $mode=in_array(($state['mode']??''),['audio','video','webinar'],true)?$state['mode']:'audio';
-$canPublish=$role!=='audience'||$mode!=='webinar'; $now=time(); $identity=$role.'-'.bin2hex(random_bytes(10));
-$identity=$pid;
+$role=($participant['host']??false)?'host':'audience';
+$allowedModes=['audio','video','webinar']; $requestedMode=(string)($body['mode']??'');
+$modeDir=__DIR__.'/storage/room-modes'; $modeFile=$modeDir.'/'.$room.'.json'; $mode='audio';
+if($role==='host'&&in_array($requestedMode,$allowedModes,true)){
+    if(!is_dir($modeDir)) @mkdir($modeDir,0700,true);
+    if(is_dir($modeDir)) @file_put_contents($modeFile,json_encode(['mode'=>$requestedMode,'updatedAt'=>time()]),LOCK_EX);
+    $mode=$requestedMode;
+}elseif(is_file($modeFile)){
+    $saved=json_decode((string)file_get_contents($modeFile),true);
+    if(in_array(($saved['mode']??''),$allowedModes,true)) $mode=$saved['mode'];
+}elseif(in_array(($state['mode']??''),$allowedModes,true)){
+    $mode=$state['mode'];
+}
+$canPublish=$role!=='audience'||$mode!=='webinar'; $now=time(); $identity=$pid;
 $claims=['sub'=>$identity,'name'=>$name,'metadata'=>json_encode(['displayName'=>$name,'role'=>$role,'mode'=>$mode],JSON_UNESCAPED_UNICODE),'nbf'=>$now-5,'exp'=>$now+(int)($config['token_ttl_seconds']??21600),'video'=>['roomJoin'=>true,'room'=>$room,'canSubscribe'=>true,'canPublish'=>$canPublish,'canPublishData'=>true]];
-respond(['ok'=>true,'url'=>(string)$config['livekit_url'],'token'=>jwt($claims,(string)$config['livekit_api_key'],(string)$config['livekit_api_secret']),'identity'=>$identity,'role'=>$role,'mode'=>$mode,'maxParticipants'=>(int)($config['max_participants']??1000)]);
+respond(['ok'=>true,'url'=>(string)$config['livekit_url'],'token'=>jwt($claims,(string)$config['livekit_api_key'],(string)$config['livekit_api_secret']),'identity'=>$identity,'role'=>$role,'mode'=>$mode,'maxParticipants'=>(int)($config['max_participants']??20)]);
