@@ -89,5 +89,6 @@
   window.addEventListener('beforeunload',()=>lkRoom?.disconnect());
   document.querySelector('#createBtn')?.addEventListener('click',()=>setTimeout(updateControls,0));
   document.querySelector('#joinOpen')?.addEventListener('click',()=>setTimeout(updateControls,0));
+  const lobbyPanel=document.querySelector('#lobby');if(lobbyPanel)new MutationObserver(updateControls).observe(lobbyPanel,{attributes:true,attributeFilter:['class']});
   updateControls();document.documentElement.dataset.livekitAdapter='video-webinar-ready';
 })();
