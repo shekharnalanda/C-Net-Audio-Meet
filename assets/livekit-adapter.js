@@ -106,6 +106,7 @@
     const lobbyVisible=!document.querySelector('#lobby')?.classList.contains('hidden'),creating=typeof mode!=='undefined'&&mode==='create';
     modeBox.style.display=lobbyVisible?'grid':'none';
     modeBox.querySelector('#cnetSessionLabel').hidden=!creating;modeBox.querySelector('#cnetModeSelect').hidden=!creating;modeBox.querySelector('#cnetLiveTier').hidden=!creating;modeBox.querySelector('#cnetJoinVerified').hidden=creating;
+    const enter=document.querySelector('#enterBtn');if(enter&&!creating)enter.textContent='Join Meeting';
     const videoMode=currentMode!=='audio';videoGrid.hidden=!videoMode;gridToolbar.hidden=!videoMode;adminBtn.classList.toggle('hidden',!host);
   };
 
