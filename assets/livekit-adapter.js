@@ -4,7 +4,7 @@
 (()=>{
   if(!window.LivekitClient||typeof start!=='function')return;
   const originalStart=start,originalLeave=leave;
-  let lkRoom=null,connecting=false,currentMode='audio',canPublish=true,cameraOn=false,screenOn=false,prejoinMic=localStorage.getItem('cnetPrejoinMic')!=='0',prejoinCamera=localStorage.getItem('cnetPrejoinCamera')==='1',gridSize=Number(localStorage.getItem('cnetGridSize')||8),gridPage=0,adapterPeople=[];
+  let lkRoom=null,connecting=false,currentMode='audio',canPublish=true,cameraOn=false,screenOn=false,micLocked=false,prejoinMic=localStorage.getItem('cnetPrejoinMic')!=='0',prejoinCamera=localStorage.getItem('cnetPrejoinCamera')==='1',gridSize=Number(localStorage.getItem('cnetGridSize')||8),gridPage=0,adapterPeople=[];
 
   const style=document.createElement('style');
   style.textContent=`
@@ -52,11 +52,11 @@
   const panel=(id)=>{const x=document.createElement('div');x.id=id;x.className='cnet-tool-panel';document.body.append(x);return x};
   const makeButton=(id,text)=>{const x=document.createElement('button');x.type='button';x.id=id;x.textContent=text;return x};
   const adminBtn=makeButton('adminToolsBtn','🛡️ Admin Tools'),reactionBtn=makeButton('reactionBtn','😊 Reactions'),participantsBtn=makeButton('participantsBtn','👥 Participants 0'),moreBtn=makeButton('moreBtn','⋯ More');
-  const adminPanel=panel('cnetAdminPanel'),reactionPanel=panel('cnetReactionPanel'),morePanel=panel('cnetMorePanel');
+  const adminPanel=panel('cnetAdminPanel'),reactionPanel=panel('cnetReactionPanel'),morePanel=panel('cnetMorePanel');const micLockBtn=makeButton('micLockBtn','🔐 Restrict participant microphones');
   const participantDrawer=document.createElement('aside');participantDrawer.id='cnetParticipantDrawer';participantDrawer.innerHTML='<header><strong>Participants</strong><button type="button" id="participantClose">×</button></header>';document.body.append(participantDrawer);
   const reactionStage=document.createElement('div');reactionStage.id='cnetReactionStage';document.body.append(reactionStage);
   const legacyPeople=document.querySelector('#people');if(legacyPeople)participantDrawer.append(legacyPeople);
-  [screenBtn,document.querySelector('#waitingBtn'),document.querySelector('#muteAllBtn'),document.querySelector('#unmuteAllBtn'),document.querySelector('#lockBtn')].filter(Boolean).forEach(x=>adminPanel.append(x));
+  [screenBtn,document.querySelector('#waitingBtn'),document.querySelector('#muteAllBtn'),document.querySelector('#unmuteAllBtn'),document.querySelector('#lockBtn')].filter(Boolean).forEach(x=>adminPanel.append(x));adminPanel.append(micLockBtn);
   [document.querySelector('#renameBtn'),document.querySelector('#photoBtn')].filter(Boolean).forEach(x=>morePanel.append(x));
   const chatBtn=document.querySelector('#chatBtn'),handBtn=document.querySelector('#handBtn'),endBtn=document.querySelector('#endBtn');
   controls?.replaceChildren(document.querySelector('#micBtn'),cameraBtn,adminBtn,chatBtn,reactionBtn,participantsBtn,moreBtn,endBtn);
@@ -67,7 +67,7 @@
   const updateParticipantCount=()=>{const count=legacyPeople?.querySelectorAll('.person').length||0;participantsBtn.textContent=`👥 Participants ${count}`;participantDrawer.querySelector('strong').textContent=`Participants (${count})`};
   if(legacyPeople)new MutationObserver(updateParticipantCount).observe(legacyPeople,{childList:true,subtree:true});updateParticipantCount();
   const showReaction=(emoji,name='Participant')=>{const pop=document.createElement('div');pop.className='cnet-reaction-pop';pop.innerHTML=`${emoji}<small>${name}</small>`;reactionStage.append(pop);setTimeout(()=>pop.remove(),2500)};
-  const sendReaction=async emoji=>{showReaction(emoji,'आप');try{const bytes=new TextEncoder().encode(JSON.stringify({type:'reaction',emoji,name:lkRoom?.localParticipant?.name||'Participant'}));await lkRoom?.localParticipant?.publishData(bytes,{reliable:true,topic:'reactions'})}catch{}};
+  const sendReaction=async emoji=>{showReaction(emoji,'आप');try{const bytes=new TextEncoder().encode(JSON.stringify({type:'reaction',emoji,name:lkRoom?.localParticipant?.name||'Participant'}));await lkRoom?.localParticipant?.publishData(bytes,{reliable:true,topic:'reactions'})}catch{}};const broadcastMicLock=async()=>{try{const bytes=new TextEncoder().encode(JSON.stringify({type:'mic-lock',locked:micLocked,time:Date.now()}));await lkRoom?.localParticipant?.publishData(bytes,{reliable:true,topic:'host-control'})}catch{}};micLockBtn.onclick=async()=>{if(!host||!lkRoom)return;micLocked=!micLocked;micLockBtn.textContent=micLocked?'🔒 Microphones restricted':'🔐 Restrict participant microphones';micLockBtn.classList.toggle('media-off',micLocked);if(micLocked)document.querySelector('#muteAllBtn')?.click();await broadcastMicLock();toast?.(micLocked?'Participants microphones restricted.':'Participants may use microphones.')};
   ['👍','👏','❤️','🎉','😂','✋'].forEach(emoji=>{const b=makeButton('',emoji);b.onclick=()=>{sendReaction(emoji);reactionPanel.classList.remove('open');if(emoji==='✋')handBtn?.click()};reactionPanel.append(b)});
 
   const paginate=()=>{
@@ -109,7 +109,7 @@
     screenBtn.disabled=!lkRoom||!canPublish||currentMode==='audio'||webinarAudience;
     const lobbyVisible=!document.querySelector('#lobby')?.classList.contains('hidden'),creating=typeof mode!=='undefined'&&mode==='create';
     modeBox.style.display=lobbyVisible?'grid':'none';
-    modeBox.querySelector('#cnetSessionLabel').hidden=!creating;modeBox.querySelector('#cnetModeSelect').hidden=!creating;modeBox.querySelector('#cnetLiveTier').hidden=!creating;modeBox.querySelector('#cnetJoinVerified').hidden=creating;
+    ['waitingBtn','muteAllBtn','unmuteAllBtn','lockBtn','micLockBtn'].forEach(id=>document.getElementById(id)?.classList.toggle('hidden',!host));modeBox.querySelector('#cnetSessionLabel').hidden=!creating;modeBox.querySelector('#cnetModeSelect').hidden=!creating;modeBox.querySelector('#cnetLiveTier').hidden=!creating;modeBox.querySelector('#cnetJoinVerified').hidden=creating;
     const enter=document.querySelector('#enterBtn');if(enter&&!creating)enter.textContent='Join Meeting';
     const videoMode=currentMode!=='audio';videoGrid.hidden=!videoMode;gridToolbar.hidden=!videoMode;adminBtn.classList.toggle('hidden',!host);
   };
@@ -125,9 +125,9 @@
       lkRoom=new Room({adaptiveStream:true,dynacast:true,publishDefaults:{simulcast:true,videoCodec:'vp8',dtx:true,red:true}});
       lkRoom.on(RoomEvent.TrackSubscribed,(track,_publication,participant)=>attachTrack(track,participant));
       lkRoom.on(RoomEvent.TrackUnsubscribed,track=>removeTrack(track));
-      lkRoom.on(RoomEvent.ParticipantConnected,participant=>participantTile(participant));
+      lkRoom.on(RoomEvent.ParticipantConnected,participant=>{participantTile(participant);if(host&&micLocked)setTimeout(broadcastMicLock,350)});
       lkRoom.on(RoomEvent.ParticipantDisconnected,participant=>{videoGrid.querySelector(`[data-participant="${CSS.escape(participant.identity)}"]`)?.remove();paginate()});
-      lkRoom.on(RoomEvent.DataReceived,(payload,participant)=>{try{const data=JSON.parse(new TextDecoder().decode(payload));if(data.type==='reaction')showReaction(data.emoji,participant?.name||data.name);if(data.type==='avatar-updated'){Promise.resolve(poll?.()).finally(()=>setTimeout(()=>videoGrid.querySelectorAll('.lk-video').forEach(w=>ensureTilePlaceholder(w,true)),150))}}catch{}});
+      lkRoom.on(RoomEvent.DataReceived,(payload,participant)=>{try{const data=JSON.parse(new TextDecoder().decode(payload));if(data.type==='reaction')showReaction(data.emoji,participant?.name||data.name);if(data.type==='mic-lock'&&!host){micLocked=!!data.locked;if(micLocked){muted=true;lkRoom?.localParticipant?.setMicrophoneEnabled(false);api('self',payload({field:'muted',value:true}))}const mb=document.querySelector('#micBtn');if(mb){mb.disabled=micLocked;mb.textContent=micLocked?'🔒 Mic restricted':(muted?'🔇 Unmute':'🎙️ Mute');setMediaVisual(mb,!muted&&!micLocked,'Microphone')}toast?.(micLocked?'Host ने microphone restrict किया है।':'Host ने microphone permission दी है।')}if(data.type==='avatar-updated'){Promise.resolve(poll?.()).finally(()=>setTimeout(()=>videoGrid.querySelectorAll('.lk-video').forEach(w=>ensureTilePlaceholder(w,true)),150))}}catch{}});
       lkRoom.on(RoomEvent.Disconnected,()=>{const s=document.querySelector('#status');if(s)s.textContent='LiveKit reconnect हो रहा है…'});
       await lkRoom.connect(auth.url,auth.token);
       const savedProfile=localStorage.getItem('cnetProfilePhoto');if(savedProfile?.startsWith('data:image/jpeg;base64,')){try{const saved=await api('avatar',payload({image:savedProfile}));if(saved?.ok){const own=adapterPeople.find(p=>p.id===pid);if(own)own.avatar=saved.avatar}}catch{}}
@@ -144,7 +144,7 @@
   recoverAudio=async function(){if(!lkRoom||!canPublish)return;try{await lkRoom.localParticipant.setMicrophoneEnabled(!muted)}catch{}};
 
   const mic=document.querySelector('#micBtn');
-  if(mic){new MutationObserver(()=>setMediaVisual(mic,!muted,'Microphone')).observe(mic,{childList:true,characterData:true,subtree:true});mic.onclick=async()=>{if(!canPublish)return;muted=!muted;await lkRoom?.localParticipant.setMicrophoneEnabled(!muted);api('self',payload({field:'muted',value:muted}));mic.textContent=muted?'🔇 Unmute':'🎙️ Mute';setMediaVisual(mic,!muted,'Microphone')}};
+  if(mic){new MutationObserver(()=>setMediaVisual(mic,!muted&&!micLocked,'Microphone')).observe(mic,{childList:true,characterData:true,subtree:true});mic.onclick=async()=>{if(micLocked&&!host){toast?.('Host ने microphone restrict किया है।');return}if(!canPublish)return;muted=!muted;await lkRoom?.localParticipant.setMicrophoneEnabled(!muted);api('self',payload({field:'muted',value:muted}));mic.textContent=muted?'🔇 Unmute':'🎙️ Mute';setMediaVisual(mic,!muted,'Microphone')}};
   cameraBtn.onclick=async()=>{if(!lkRoom||!canPublish)return;cameraOn=!cameraOn;try{const publication=await lkRoom.localParticipant.setCameraEnabled(cameraOn);cameraBtn.textContent=cameraOn?'📷 Camera off':'📹 Camera';setMediaVisual(cameraBtn,cameraOn,'Camera');const wrap=participantTile(lkRoom.localParticipant,true);if(cameraOn){const track=publication?.track||Array.from(lkRoom.localParticipant.cameraTrackPublications?.values?.()||[]).find(p=>p.track)?.track;attachLocalCamera(track)}else{wrap.querySelector('video')?.remove();wrap.classList.remove('has-video');ensureTilePlaceholder(wrap);paginate()}}catch(e){cameraOn=false;cameraBtn.textContent='📹 Camera';setMediaVisual(cameraBtn,false,'Camera');toast?.('Camera permission दीजिए।')}};
   screenBtn.onclick=async()=>{if(!lkRoom||!canPublish)return;screenOn=!screenOn;try{await lkRoom.localParticipant.setScreenShareEnabled(screenOn);screenBtn.textContent=screenOn?'⏹ Stop share':'🖥️ Share'}catch(e){screenOn=false;screenBtn.textContent='🖥️ Share'}};
 
@@ -159,5 +159,5 @@
   const announceAvatar=()=>setTimeout(async()=>{try{const preview=document.querySelector('#photoPreview img')?.src;if(preview?.startsWith('data:image/jpeg;base64,'))localStorage.setItem('cnetProfilePhoto',preview);await poll?.();videoGrid.querySelectorAll('.lk-video').forEach(w=>ensureTilePlaceholder(w,true));const bytes=new TextEncoder().encode(JSON.stringify({type:'avatar-updated',identity:pid,time:Date.now()}));await lkRoom?.localParticipant?.publishData(bytes,{reliable:true,topic:'profile'})}catch{}},1000);
   document.querySelector('#photoInput')?.addEventListener('change',announceAvatar);document.querySelector('#photoRemove')?.addEventListener('click',()=>{localStorage.removeItem('cnetProfilePhoto');announceAvatar()});
   if(legacyPeople)new MutationObserver(()=>setTimeout(syncTileAvatars,0)).observe(legacyPeople,{childList:true,subtree:true});
-  updateControls();setMediaVisual(document.querySelector('#micBtn'),true,'Microphone');setMediaVisual(cameraBtn,false,'Camera');document.documentElement.dataset.livekitAdapter='host-avatar-tile-final-ready';
+  updateControls();setMediaVisual(document.querySelector('#micBtn'),true,'Microphone');setMediaVisual(cameraBtn,false,'Camera');document.documentElement.dataset.livekitAdapter='host-controls-final-ready';
 })();
