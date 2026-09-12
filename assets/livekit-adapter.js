@@ -80,18 +80,17 @@
   gridSelect.onchange=()=>{gridSize=Number(gridSelect.value);gridPage=0;localStorage.setItem('cnetGridSize',String(gridSize));paginate()};
   gridToolbar.querySelector('#gridPrev').onclick=()=>{if(gridPage>0){gridPage--;paginate()}};
   gridToolbar.querySelector('#gridNext').onclick=()=>{gridPage++;paginate()};
+  const paintAvatar=(placeholder,identity,name,version=0)=>{placeholder.textContent=(name||'P').slice(0,1).toUpperCase();if(!identity||identity==='local')return;const img=document.createElement('img');img.alt=`${name||'Participant'} profile photo`;img.style.cssText='width:100%;height:100%;object-fit:cover';img.onload=()=>placeholder.replaceChildren(img);img.onerror=()=>{};img.src=`avatar.php?room=${encodeURIComponent(room)}&id=${encodeURIComponent(identity)}&v=${encodeURIComponent(version||Date.now())}`};
   const participantTile=(participant,self=false)=>{
     const identity=participant?.identity||'local',selector=`[data-participant="${CSS.escape(identity)}"]`;
     let wrap=videoGrid.querySelector(selector);if(wrap)return wrap;
     wrap=document.createElement('div');wrap.className='lk-video';wrap.dataset.participant=identity;
-    const person=adapterPeople.find(p=>p.id===identity),avatar=person?.avatar;
-    const placeholder=document.createElement('div');placeholder.className='lk-placeholder';
-    if(avatar){const img=document.createElement('img');img.src=`avatar.php?room=${encodeURIComponent(room)}&id=${encodeURIComponent(identity)}&v=${encodeURIComponent(avatar)}`;img.alt=`${participant?.name||person?.name||'Participant'} profile photo`;img.style.cssText='width:100%;height:100%;object-fit:cover';placeholder.append(img)}else placeholder.textContent=(participant?.name||person?.name||'P').slice(0,1).toUpperCase();
-    const label=document.createElement('span');label.textContent=self?'आप (Self View)':participant?.name||'Participant';
+    const person=adapterPeople.find(p=>p.id===identity),placeholder=document.createElement('div');placeholder.className='lk-placeholder';wrap.dataset.avatarVersion=String(person?.avatar||0);paintAvatar(placeholder,identity,participant?.name||person?.name||'Participant',person?.avatar||0);
+    const label=document.createElement('span');label.textContent=self?'आप (Self View)':participant?.name||person?.name||'Participant';
     wrap.append(placeholder,label);videoGrid.append(wrap);paginate();return wrap;
   };
-  const ensureTilePlaceholder=wrap=>{if(!wrap||wrap.querySelector('video')||wrap.querySelector('.lk-placeholder'))return;const identity=wrap.dataset.participant||'',person=adapterPeople.find(p=>p.id===identity);const p=document.createElement('div');p.className='lk-placeholder';if(person?.avatar){const img=document.createElement('img');img.src=`avatar.php?room=${encodeURIComponent(room)}&id=${encodeURIComponent(identity)}&v=${encodeURIComponent(person.avatar)}`;img.alt=`${person.name||'Participant'} profile photo`;img.style.cssText='width:100%;height:100%;object-fit:cover';p.append(img)}else p.textContent=(person?.name||'P').slice(0,1).toUpperCase();wrap.prepend(p)};
-  const syncTileAvatars=()=>{videoGrid.querySelectorAll('.lk-video').forEach(wrap=>{if(wrap.querySelector('video'))return;wrap.querySelector('.lk-placeholder')?.remove();ensureTilePlaceholder(wrap)})};
+  const ensureTilePlaceholder=wrap=>{if(!wrap||wrap.querySelector('video'))return;const identity=wrap.dataset.participant||'',person=adapterPeople.find(p=>p.id===identity),version=String(person?.avatar||0);let p=wrap.querySelector('.lk-placeholder');if(p&&wrap.dataset.avatarVersion===version)return;p?.remove();p=document.createElement('div');p.className='lk-placeholder';wrap.dataset.avatarVersion=version;paintAvatar(p,identity,person?.name||wrap.querySelector('span')?.textContent||'Participant',person?.avatar||Date.now());wrap.prepend(p)};
+  const syncTileAvatars=()=>{videoGrid.querySelectorAll('.lk-video').forEach(wrap=>{if(!wrap.querySelector('video'))ensureTilePlaceholder(wrap)})};
   const removeTrack=track=>track.detach().forEach(el=>{const wrap=el.closest('.lk-video');el.remove();if(wrap){wrap.classList.remove('has-video');ensureTilePlaceholder(wrap)}paginate()});
   const attachTrack=(track,participant)=>{
     if(track.kind==='audio'){const el=track.attach();el.autoplay=true;el.dataset.livekit='1';document.querySelector('#audioBox')?.append(el);return}
@@ -131,6 +130,7 @@
       lkRoom.on(RoomEvent.DataReceived,(payload,participant)=>{try{const data=JSON.parse(new TextDecoder().decode(payload));if(data.type==='reaction')showReaction(data.emoji,participant?.name||data.name);if(data.type==='avatar-updated'){poll?.();setTimeout(syncTileAvatars,350)}}catch{}});
       lkRoom.on(RoomEvent.Disconnected,()=>{const s=document.querySelector('#status');if(s)s.textContent='LiveKit reconnect हो रहा है…'});
       await lkRoom.connect(auth.url,auth.token);
+      const savedProfile=localStorage.getItem('cnetProfilePhoto');if(savedProfile?.startsWith('data:image/jpeg;base64,')){try{const saved=await api('avatar',payload({image:savedProfile}));if(saved?.ok){const own=adapterPeople.find(p=>p.id===pid);if(own)own.avatar=saved.avatar}}catch{}}
       stream?.getTracks().forEach(t=>t.stop());stream=null;
       if(canPublish){await lkRoom.localParticipant.setMicrophoneEnabled(prejoinMic&&!muted);muted=!prejoinMic;if(currentMode==='video'&&prejoinCamera){const publication=await lkRoom.localParticipant.setCameraEnabled(true);cameraOn=true;const localTrack=publication?.track||Array.from(lkRoom.localParticipant.cameraTrackPublications?.values?.()||[]).find(p=>p.track)?.track;attachLocalCamera(localTrack)}}setMediaVisual(document.querySelector('#micBtn'),canPublish&&!muted,'Microphone');setMediaVisual(cameraBtn,canPublish&&cameraOn,'Camera');
       participantTile(lkRoom.localParticipant,true);lkRoom.remoteParticipants.forEach(participant=>participantTile(participant));
@@ -156,8 +156,8 @@
   const lobbyPanel=document.querySelector('#lobby');if(lobbyPanel)new MutationObserver(updateControls).observe(lobbyPanel,{attributes:true,attributeFilter:['class']});
   if(typeof lobby==='function'){const baseLobby=lobby;lobby=function(...args){const result=baseLobby(...args);setTimeout(updateControls,0);return result}}
   if(typeof renderPeople==='function'){const baseRenderPeople=renderPeople;renderPeople=function(ps){adapterPeople=Array.isArray(ps)?ps:[];const result=baseRenderPeople(ps);setTimeout(syncTileAvatars,0);return result}}
-  const announceAvatar=()=>setTimeout(async()=>{try{await poll?.();syncTileAvatars();const bytes=new TextEncoder().encode(JSON.stringify({type:'avatar-updated',identity:pid,time:Date.now()}));await lkRoom?.localParticipant?.publishData(bytes,{reliable:true,topic:'profile'})}catch{}},900);
-  document.querySelector('#photoInput')?.addEventListener('change',announceAvatar);document.querySelector('#photoRemove')?.addEventListener('click',announceAvatar);
+  const announceAvatar=()=>setTimeout(async()=>{try{const preview=document.querySelector('#photoPreview img')?.src;if(preview?.startsWith('data:image/jpeg;base64,'))localStorage.setItem('cnetProfilePhoto',preview);await poll?.();syncTileAvatars();const bytes=new TextEncoder().encode(JSON.stringify({type:'avatar-updated',identity:pid,time:Date.now()}));await lkRoom?.localParticipant?.publishData(bytes,{reliable:true,topic:'profile'})}catch{}},1000);
+  document.querySelector('#photoInput')?.addEventListener('change',announceAvatar);document.querySelector('#photoRemove')?.addEventListener('click',()=>{localStorage.removeItem('cnetProfilePhoto');announceAvatar()});
   if(legacyPeople)new MutationObserver(()=>setTimeout(syncTileAvatars,0)).observe(legacyPeople,{childList:true,subtree:true});
-  updateControls();setMediaVisual(document.querySelector('#micBtn'),true,'Microphone');setMediaVisual(cameraBtn,false,'Camera');document.documentElement.dataset.livekitAdapter='host-mode-camera-repair-ready';
+  updateControls();setMediaVisual(document.querySelector('#micBtn'),true,'Microphone');setMediaVisual(cameraBtn,false,'Camera');document.documentElement.dataset.livekitAdapter='persistent-remote-avatar-ready';
 })();
