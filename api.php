@@ -4,12 +4,13 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 const MAX_PARTICIPANTS = 20;
 const TTL = 86400;
+const PERMANENT_ROOM = '9334779133';
 $dir = __DIR__.'/storage/rooms';
 if (!is_dir($dir)) mkdir($dir, 0750, true);
 function out(array $v, int $s=200): never { http_response_code($s); echo json_encode($v, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); exit; }
 function body(): array { $v=json_decode(file_get_contents('php://input') ?: '{}', true); return is_array($v)?$v:[]; }
 function clean(string $v, int $n=60): string { return trim(mb_substr(strip_tags($v),0,$n)); }
-function rid(string $v): string { $v=strtoupper(preg_replace('/[^A-Z0-9]/i','',$v)); return strlen($v)===9?$v:''; }
+function rid(string $v): string { $v=strtoupper(preg_replace('/[^A-Z0-9]/i','',$v)); return strlen($v)===9||$v===PERMANENT_ROOM?$v:''; }
 function token(): string { return bin2hex(random_bytes(18)); }
 function pathFor(string $room): string { global $dir; return $dir.'/'.$room.'.json'; }
 function transact(string $room, callable $fn): array {
@@ -19,6 +20,31 @@ function transact(string $room, callable $fn): array {
 }
 function auth(array $d,string $pid,string $tk): bool { return isset($d['participants'][$pid]) && hash_equals($d['participants'][$pid]['token'],$tk); }
 $b=body(); $action=$_GET['action']??'';
+if($action==='start_permanent'){
+  $cfgFile=__DIR__.'/config.php'; $cfg=is_file($cfgFile)?require $cfgFile:[];
+  $hash=(string)($cfg['permanent_meeting_pin_hash']??''); $pin=(string)($b['pin']??'');
+  $rateFile=$dir.'/.permanent-start-'.hash('sha256',($_SERVER['REMOTE_ADDR']??'unknown')).'.json';
+  $rate=is_file($rateFile)?json_decode((string)file_get_contents($rateFile),true):[]; $rate=is_array($rate)?$rate:[]; $now=time();
+  if(($rate['until']??0)>$now) out(['ok'=>false,'error'=>'कई गलत प्रयास हुए। 5 मिनट बाद फिर कोशिश कीजिए।'],429);
+  if($hash===''||!password_verify($pin,$hash)){
+    $tries=(($rate['first']??0)>$now-300)?(int)($rate['tries']??0)+1:1;
+    file_put_contents($rateFile,json_encode(['first'=>$tries===1?$now:($rate['first']??$now),'tries'=>$tries,'until'=>$tries>=5?$now+300:0]),LOCK_EX);
+    out(['ok'=>false,'error'=>'Host PIN सही नहीं है।'],403);
+  }
+  @unlink($rateFile);
+  $name=clean((string)($b['name']??'')); if(mb_strlen($name)<2) out(['ok'=>false,'error'=>'अपना नाम लिखिए'],422);
+  $mode=in_array(($b['mode']??''),['audio','video','webinar'],true)?$b['mode']:'audio';
+  $existingFile=pathFor(PERMANENT_ROOM);
+  if(is_file($existingFile)){
+    $existing=json_decode((string)file_get_contents($existingFile),true); $active=false;
+    foreach(($existing['participants']??[]) as $participant) if($now-(int)($participant['seen']??0)<=35){$active=true;break;}
+    if($active&&!($existing['ended']??false)) out(['ok'=>false,'error'=>'यह permanent meeting पहले से चल रही है। Invitation link से जुड़िए।'],409);
+  }
+  $pid=token();$tk=token();$host=token();
+  $d=['id'=>PERMANENT_ROOM,'mode'=>$mode,'created'=>$now,'permanent'=>true,'locked'=>false,'ended'=>false,'host'=>$pid,'hostKey'=>hash('sha256',$host),'participants'=>[$pid=>['id'=>$pid,'name'=>$name,'token'=>$tk,'host'=>true,'muted'=>false,'hand'=>false,'joined'=>$now,'seen'=>$now]],'signals'=>[],'chat'=>[],'events'=>[]];
+  file_put_contents(pathFor(PERMANENT_ROOM),json_encode($d),LOCK_EX);
+  out(['ok'=>true,'room'=>PERMANENT_ROOM,'mode'=>$mode,'pid'=>$pid,'token'=>$tk,'hostKey'=>$host]);
+}
 if($action==='create'){
   $name=clean((string)($b['name']??'')); if(mb_strlen($name)<2) out(['ok'=>false,'error'=>'अपना नाम लिखिए'],422);
   $mode=in_array(($b['mode']??''),['audio','video','webinar'],true)?$b['mode']:'audio';
