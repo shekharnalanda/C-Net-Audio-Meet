@@ -10,6 +10,7 @@ Self-hosted audio/video meetings and webinars for MCI Educational Group.
 - No meeting-duration restriction; recording remains disabled.
 - BigRock hosts the portal/token endpoint; Oracle/VPS hosts LiveKit, Redis and TURN.
 - Production capacity is certified through staged 100/300/500/1000 load tests.
+- Permanent quick meeting `9334779133` with a sidebar start/copy shortcut and server-verified host PIN.
 
 ## Legacy shared-hosting release
 
