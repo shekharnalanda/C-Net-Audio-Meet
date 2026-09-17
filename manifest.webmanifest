@@ -1,0 +1,9 @@
+{
+  "name": "C-Net Meet",
+  "short_name": "C-Net Meet",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#123a73",
+  "icons": [{"src":"assets/cnet-meet-logo-web.png","sizes":"256x256","type":"image/png","purpose":"any maskable"}]
+}
