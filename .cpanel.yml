@@ -1,7 +1,7 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home4/mcied45x/meet.mciedu.com
+    - export DEPLOYPATH=/home4/mcied45x/meet
     - /bin/mkdir -p $DEPLOYPATH/storage/rooms
-    - /bin/cp -R index.php api.php assets .htaccess README.md $DEPLOYPATH/
+    - /bin/cp -R index.php admin.php api.php assets manifest.webmanifest sw.js .htaccess README.md $DEPLOYPATH/
     - /bin/chmod 750 $DEPLOYPATH/storage/rooms
