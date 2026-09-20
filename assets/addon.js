@@ -4,7 +4,7 @@ document.querySelectorAll('.install-app').forEach(btn=>btn.addEventListener('cli
   if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null}
   else toast('Browser menu में “Install app” या “Add to Home screen” चुनिए।');
 }));
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{}));
 const inviteUrl=()=>location.origin+location.pathname+'?room='+room;
 const readableMeetingId=id=>(id||'').replace(/(.{3})(?=.)/g,'$1 ').trim();
 const readableDateTime=(date,time)=>{

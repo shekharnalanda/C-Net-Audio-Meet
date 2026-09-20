@@ -74,6 +74,9 @@ if($action==='reserve'){
   file_put_contents(pathFor($room),json_encode($d),LOCK_EX);
   out(['ok'=>true,'room'=>$room,'hostKey'=>$host,'invite'=>'?room='.$room]);
 }
+// Heartbeat and control requests do not need the PHP session. Releasing this
+// lock prevents polling from blocking host controls in the same browser.
+if(session_status()===PHP_SESSION_ACTIVE) session_write_close();
 $room=rid((string)($b['room']??$_GET['room']??'')); if(!$room||!file_exists(pathFor($room))) out(['ok'=>false,'error'=>'Meeting नहीं मिली'],404);
 $res=transact($room,function(array &$d)use($action,$b,$room){
   $now=time(); foreach(($d['participants']??[]) as $id=>$p) if($now-($p['seen']??0)>900) unset($d['participants'][$id]);

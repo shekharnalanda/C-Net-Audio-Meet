@@ -1,0 +1,36 @@
+name: Quality checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: PHP syntax
+        run: find . -type f -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+      - name: JavaScript syntax
+        run: |
+          node --check assets/app.js
+          node --check assets/addon.js
+          node --check assets/livekit-adapter.js
+          node --check sw.js
+      - name: Deployment assets
+        run: |
+          test -s assets/cnet-meet-logo-web.png
+          test -s assets/livekit-client.umd.min.js
+          test -f avatar.php
+          test -f livekit-token.php
+          test -f health.php

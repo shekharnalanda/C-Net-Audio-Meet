@@ -1,20 +1,42 @@
 services:
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server@sha256:e37d68f172556d02aa77968b9fc55ef481468c0315fa38e4fa6c56ce72e3a815
     restart: unless-stopped
     command: --config /etc/livekit.yaml
     network_mode: host
     volumes:
       - ./livekit.micro.yaml:/etc/livekit.yaml:ro
+    healthcheck:
+      test: ["CMD", "/livekit-server", "--version"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "5"
 
   caddy:
-    image: caddy:2-alpine
+    image: caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     restart: unless-stopped
     network_mode: host
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "5"
 
 volumes:
   caddy-data:

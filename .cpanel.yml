@@ -2,6 +2,6 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home4/mcied45x/meet
-    - /bin/mkdir -p $DEPLOYPATH/storage/rooms
-    - /bin/cp -R index.php admin.php api.php assets manifest.webmanifest sw.js .htaccess README.md $DEPLOYPATH/
-    - /bin/chmod 750 $DEPLOYPATH/storage/rooms
+    - /bin/mkdir -p $DEPLOYPATH/storage/rooms $DEPLOYPATH/storage/avatars $DEPLOYPATH/storage/room-modes $DEPLOYPATH/storage/logs
+    - /bin/cp -R index.php admin.php api.php avatar.php livekit-token.php assets manifest.webmanifest sw.js health.php .htaccess README.md $DEPLOYPATH/
+    - /bin/chmod 750 $DEPLOYPATH/storage/rooms $DEPLOYPATH/storage/avatars $DEPLOYPATH/storage/room-modes $DEPLOYPATH/storage/logs
