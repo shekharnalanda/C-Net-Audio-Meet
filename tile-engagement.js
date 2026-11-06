@@ -28,7 +28,7 @@
     const explicit = card.dataset.engagementId;
     const link = card.matches('a[href]') ? card : card.querySelector('a[href]:not([href="#"])');
     const image = card.querySelector('img');
-    const heading = card.querySelector('h2,h3,h4,h5,b,strong');
+    const heading = card.querySelector('h2,h3,h4,h5') || card.querySelector('b,strong');
     const group = card.closest('section[id]')?.id || card.parentElement?.className || 'home';
     const identity = explicit || (link ? canonical(link.getAttribute('href')) + ':' + (heading?.textContent?.trim() || '') : image ? canonical(image.getAttribute('src')) : heading?.textContent?.trim() || card.id || card.textContent.trim().slice(0,160));
     return 'tile-' + hash(group + ':' + identity);
@@ -81,7 +81,7 @@
     if (parentTile) return;
     mounted.add(card);
     const key = identify(card);
-    const title = card.querySelector('h2,h3,h4,h5,b,strong')?.textContent?.trim() || card.querySelector('img')?.alt || 'यह विकल्प';
+    const title = (card.querySelector('h2,h3,h4,h5') || card.querySelector('b,strong'))?.textContent?.trim() || card.querySelector('img')?.alt || 'यह विकल्प';
     let host = card;
     const interactive = card.matches('a,button') ? card : card.closest('a,button');
     if (interactive) {
