@@ -1,0 +1,28 @@
+.tile-engagement-shell{display:flex;flex-direction:column;min-width:0;align-self:stretch;gap:0}
+.tile-engagement-shell>a:first-child,.tile-engagement-shell>button:first-child{width:100%;box-sizing:border-box;flex:1;min-width:0}
+.tile-engagement-bar{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;flex-wrap:wrap!important;position:relative;z-index:2;box-sizing:border-box;width:100%;margin:16px 0 0!important;padding:10px 0 0!important;border:0!important;border-top:1px solid rgba(99,122,135,.2)!important;background:transparent!important;color:#516577!important;line-height:1.2!important;font-family:inherit!important;letter-spacing:normal!important;text-transform:none!important}
+.tile-engagement-bar .tile-like,.tile-engagement-bar .tile-views{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;flex-wrap:nowrap!important;border:0!important;border-radius:20px!important;padding:7px 10px!important;margin:0!important;min-height:36px;min-width:0!important;width:auto!important;background:#f1f6f5!important;color:#344f58!important;font:600 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif!important;box-shadow:none!important;letter-spacing:normal!important;text-decoration:none!important;text-transform:none!important;white-space:nowrap!important;transform:none!important}
+.tile-engagement-bar .tile-like{cursor:pointer!important;transition:background .15s,color .15s}
+.tile-engagement-bar .tile-like:hover{background:#e7eff0!important}
+.tile-engagement-bar .tile-like[aria-pressed="true"]{background:#fde8ee!important;color:#ad2550!important}
+.tile-engagement-bar .tile-like:focus-visible{outline:3px solid #19756d!important;outline-offset:3px}
+.tile-engagement-bar .tile-like:disabled{opacity:.65;cursor:wait!important}
+.tile-engagement-bar svg{display:block!important;width:16px!important;height:16px!important;min-width:16px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.7!important;stroke-linecap:round;stroke-linejoin:round;margin:0!important}
+.tile-engagement-bar .tile-like[aria-pressed="true"] svg{fill:currentColor!important}
+.tile-engagement-bar [data-count],.tile-engagement-bar .tile-metric-label{display:inline!important;margin:0!important;padding:0!important;font:inherit!important;line-height:inherit!important;color:inherit!important;background:none!important;letter-spacing:normal!important;text-transform:none!important}
+.tile-engagement-status:empty{display:none!important}
+.tile-engagement-status{flex-basis:100%;font:12px/1.4 system-ui,sans-serif;color:#a32c3c}
+.tile-engagement-shell>.tile-engagement-bar{margin-top:0!important;padding:10px 12px!important;background:#fff!important;border:1px solid #e3eaea!important;border-radius:0 0 12px 12px}
+.gallery-public-grid>.tile-engagement-shell{grid-column:span 4}
+.gallery-public-grid>.tile-engagement-shell:nth-child(5n+1),.gallery-public-grid>.tile-engagement-shell:nth-child(5n+2){grid-column:span 6}
+.program-scroll-item.has-tile-engagement{flex-direction:column}
+.program-scroll-item.has-tile-engagement>.program-link{height:auto;flex:1}
+.welcome-campus-card.has-tile-engagement>.tile-engagement-bar{position:absolute;bottom:0;padding:12px!important;margin:0!important;background:rgba(255,255,255,.95)!important}
+.work-card>.tile-engagement-bar,.trustee-card>.tile-engagement-bar,.news-card>.tile-engagement-bar{width:calc(100% - 32px);margin:0 16px 16px!important}
+.work-card>.tile-engagement-bar,.trustee-card>.tile-engagement-bar{border-color:rgba(190,207,210,.4)!important}
+.work-card>.tile-engagement-bar{grid-column:1/-1}
+.product-card>.tile-engagement-bar,.event-card>.tile-engagement-bar,.business-card>.tile-engagement-bar,.offer>.tile-engagement-bar{grid-column:1/-1;margin:0!important;padding:12px!important;width:100%}
+.tile-engagement-bar .tile-views{cursor:default!important}
+@media(max-width:420px){.tile-engagement-bar{gap:5px!important}.tile-engagement-bar .tile-like,.tile-engagement-bar .tile-views{padding:7px 8px!important;font-size:11px!important;gap:4px!important}}
+@media(max-width:800px){.gallery-public-grid>.tile-engagement-shell:nth-child(n){grid-column:auto}}
+@media(prefers-reduced-motion:reduce){.tile-engagement-bar .tile-like{transition:none}}
